@@ -55,7 +55,7 @@ public class Main {
      * @param humidity the relative humidity percentage
      * @param precipitation the precipitation amount
      */
-    //the data
+    //the data using Java records
     record WeatherData(LocalDate date, double temperature, int humidity, double precipitation) {
     }
 
@@ -114,6 +114,7 @@ public class Main {
      * @param month the year and month to analyze
      * @return the average temperature, or an empty result if the month has no records
      */
+    //Find the average of temperature.
     static OptionalDouble averageTemperatureForMonth(List<WeatherData> weatherData, YearMonth month) {
         return weatherData.stream()
                 .filter(record -> YearMonth.from(record.date()).equals(month))
@@ -128,6 +129,7 @@ public class Main {
      * @param threshold temperature threshold in degrees
      * @return matching records, in their original order
      */
+    //Filtering the data, if that day is going over the threshold.
     static List<WeatherData> daysAboveThreshold(List<WeatherData> weatherData, double threshold) {
         return weatherData.stream()
                 .filter(record -> record.temperature() > threshold)
@@ -140,6 +142,7 @@ public class Main {
      * @param weatherData all available weather records
      * @return the number of records with precipitation greater than zero
      */
+    //To filter the data, by showing if there is rainy days
     static long countRainyDays(List<WeatherData> weatherData) {
         return weatherData.stream()
                 .filter(record -> record.precipitation() > 0)
@@ -147,18 +150,20 @@ public class Main {
     }
 
     /**
-     * Assigns a category using a switch expression: below 10 is cold, below 25 is
-     * warm, and 25 or above is hot.
+     * Assigns a category by matching the weather record's components in a switch
+     * expression: below 10 is cold, below 25 is warm, and 25 or above is hot.
      *
-     * @param temperature temperature in degrees
+     * @param weather the weather record to categorize
      * @return the matching weather category
      */
-    static String weatherCategory(double temperature) {
-        int category = temperature < 10 ? 0 : temperature < 25 ? 1 : 2;
-        return switch (category) {
-            case 0 -> "Cold";
-            case 1 -> "Warm";
-            default -> "Hot";
+    //using pattern matching
+    static String weatherCategory(WeatherData weather) {
+        return switch (weather) {
+            case WeatherData(var date, var temperature, var humidity, var precipitation)
+                    when temperature < 10 -> "Cold";
+            case WeatherData(var date, var temperature, var humidity, var precipitation)
+                    when temperature < 25 -> "Warm";
+            case WeatherData(var date, var temperature, var humidity, var precipitation) -> "Hot";
         };
     }
 
@@ -172,10 +177,14 @@ public class Main {
         //the path to the file
         Path csvPath = args.length > 0 ? Path.of(args[0]) : Path.of("weatherdata.csv");
         List<WeatherData> weatherData = readWeatherData(csvPath);
+        //Month of August
         YearMonth month = YearMonth.of(2023, 8);
+        //the temperature threshold, being hot
         double threshold = 33.0;
         OptionalDouble average = averageTemperatureForMonth(weatherData, month);
         List<WeatherData> aboveThreshold = daysAboveThreshold(weatherData, threshold);
+
+        //Using the local variable in main!
         String averageText = average.isPresent()
                 ? "%.1f degrees".formatted(average.getAsDouble())
                 : "No data for this month";
@@ -185,13 +194,13 @@ public class Main {
                         .map(record -> "  %s: %.1f degrees".formatted(record.date(), record.temperature()))
                         .collect(Collectors.joining(System.lineSeparator()));
         String categoriesText = weatherData.stream()
-                .map(record -> "  %s: %s".formatted(record.date(), weatherCategory(record.temperature())))
+                .map(record -> "  %s: %s".formatted(record.date(), weatherCategory(record)))
                 .collect(Collectors.joining(System.lineSeparator()));
 
         String report = """
                 Weather Data Summary
                 --------------------
-                Records shown: %d
+                Records shown in file: %d
                 
                 Average temperature for %s: %s
                 Days above %.1f(hot) degrees:
