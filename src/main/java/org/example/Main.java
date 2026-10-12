@@ -166,6 +166,7 @@ public record Main() {
                 .map(record -> "  %s: %s".formatted(record.date(), weatherCategory(record)))
                 .collect(Collectors.joining(System.lineSeparator()));
 
+        //text block
         String report = """
                 Weather Data Summary
                 --------------------
@@ -175,9 +176,9 @@ public record Main() {
                 Days above %.1f(hot) degrees:
                 %s
                 
-                Rainy days in the month(count): %d
+                Rainy days in that month : %d
                 
-                Weather categories(by C) (cold < 10, warm < 25, hot >= 25 degrees):
+                Weather categories(by Celsius) (cold < 10, warm < 25, hot >= 25 degrees):
                 %s
                 """.formatted(
                 weatherData.size(),
