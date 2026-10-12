@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 
 /**
  * @author Henry Arevalo
@@ -18,6 +21,7 @@ import java.util.stream.IntStream;
  *
  * Features to Implement:
  * Parse weather data (e.g., temperature, humidity, precipitation) from a CSV file.
+ *
  * Provide the following functionalities:
  * Average temperature for a specific month.
  * Days with temperatures above a given threshold.
@@ -44,7 +48,7 @@ import java.util.stream.IntStream;
  */
 public class Main {
     /**
-     * A single day's weather measurements.
+     * A day's weather measurements.
      *
      * @param date the date of the measurements
      * @param temperature the temperature in degrees
@@ -56,20 +60,19 @@ public class Main {
     }
 
     /**
-     * Loads the weather records from a CSV file with the header
+     * Loads the weather records from a CSV file
      * {@code Date,Temperature,Humidity,Precipitation}.
      *
      * @param csvPath path to the CSV file
      * @return the parsed weather records
-     * @throws IOException if the file cannot be read or its header is invalid
-     * @throws IllegalArgumentException if a data row is malformed
+     * @throws IOException if the file cannot be read!
+     * @throws IllegalArgumentException if a data row is not correctly written!
      */
     static List<WeatherData> readWeatherData(Path csvPath) throws IOException {
         List<String> lines = Files.readAllLines(csvPath);
         if (lines.isEmpty()
                 || !lines.get(0).strip().equals("Date,Temperature,Humidity,Precipitation")) {
-            throw new IOException("The CSV file must start with "
-                    + "Date, Temperature, Humidity, Precipitation.");
+            throw new IOException("The CSV file must start with: Date, Temperature, Humidity, Precipitation.");
         }
 
         return IntStream.range(1, lines.size())
@@ -105,6 +108,61 @@ public class Main {
     }
 
     /**
+     * Calculates the average temperature for a particular month.
+     *
+     * @param weatherData all available weather records
+     * @param month the year and month to analyze
+     * @return the average temperature, or an empty result if the month has no records
+     */
+    static OptionalDouble averageTemperatureForMonth(List<WeatherData> weatherData, YearMonth month) {
+        return weatherData.stream()
+                .filter(record -> YearMonth.from(record.date()).equals(month))
+                .mapToDouble(WeatherData::temperature)
+                .average();
+    }
+
+    /**
+     * Finds records whose temperature is strictly greater than the supplied threshold.
+     *
+     * @param weatherData all available weather records
+     * @param threshold temperature threshold in degrees
+     * @return matching records, in their original order
+     */
+    static List<WeatherData> daysAboveThreshold(List<WeatherData> weatherData, double threshold) {
+        return weatherData.stream()
+                .filter(record -> record.temperature() > threshold)
+                .toList();
+    }
+
+    /**
+     * Counts days with measurable precipitation.
+     *
+     * @param weatherData all available weather records
+     * @return the number of records with precipitation greater than zero
+     */
+    static long countRainyDays(List<WeatherData> weatherData) {
+        return weatherData.stream()
+                .filter(record -> record.precipitation() > 0)
+                .count();
+    }
+
+    /**
+     * Assigns a category using a switch expression: below 10 is cold, below 25 is
+     * warm, and 25 or above is hot.
+     *
+     * @param temperature temperature in degrees
+     * @return the matching weather category
+     */
+    static String weatherCategory(double temperature) {
+        int category = temperature < 10 ? 0 : temperature < 25 ? 1 : 2;
+        return switch (category) {
+            case 0 -> "Cold";
+            case 1 -> "Warm";
+            default -> "Hot";
+        };
+    }
+
+    /**
      * Reads {@code weatherdata.csv} from the project directory prints the records.
      *
      * @param args optional path to the weather CSV file
@@ -114,8 +172,44 @@ public class Main {
         //the path to the file
         Path csvPath = args.length > 0 ? Path.of(args[0]) : Path.of("weatherdata.csv");
         List<WeatherData> weatherData = readWeatherData(csvPath);
+        YearMonth month = YearMonth.of(2023, 8);
+        double threshold = 33.0;
+        OptionalDouble average = averageTemperatureForMonth(weatherData, month);
+        List<WeatherData> aboveThreshold = daysAboveThreshold(weatherData, threshold);
+        String averageText = average.isPresent()
+                ? "%.1f degrees".formatted(average.getAsDouble())
+                : "No data for this month";
+        String aboveThresholdText = aboveThreshold.isEmpty()
+                ? "  (none)"
+                : aboveThreshold.stream()
+                        .map(record -> "  %s: %.1f degrees".formatted(record.date(), record.temperature()))
+                        .collect(Collectors.joining(System.lineSeparator()));
+        String categoriesText = weatherData.stream()
+                .map(record -> "  %s: %s".formatted(record.date(), weatherCategory(record.temperature())))
+                .collect(Collectors.joining(System.lineSeparator()));
 
-        System.out.println("There's " + weatherData.size() + " weather records during the year 2023:");
-        weatherData.forEach(System.out::println);
+        String report = """
+                Weather Data Summary
+                --------------------
+                Records shown: %d
+                
+                Average temperature for %s: %s
+                Days above %.1f(hot) degrees:
+                %s
+                
+                Rainy days (precipitation greater than zero): %d
+                
+                Weather categories(by C) (cold < 10, warm < 25, hot >= 25 degrees):
+                %s
+                """.formatted(
+                weatherData.size(),
+                month,
+                averageText,
+                threshold,
+                aboveThresholdText,
+                countRainyDays(weatherData),
+                categoriesText);
+
+        System.out.println(report);
     }
 }
